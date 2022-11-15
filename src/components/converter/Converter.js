@@ -1,65 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useTransition } from 'react';
 import ConverterService from '../../services/ConverterService';
 import { arrowUp, arrowDown } from '../../resources/Graphichs';
+import Spinner from '../spinner/Spinner';
 
-import '../converter/converter.css'
+import '../converter/converter.css';
 
 const Converter = () => {
-    const service = new ConverterService();
+	const service = new ConverterService();
+	const [pending, startTransition] = useTransition();
+	const [valute, setValute] = useState([]);
+	const [value, setValue] = useState('');
 
-    const [valute, setValute] = useState([]);
-    const [value, setValue] = useState('');
+	useEffect(() => {
+		requestData();
+	}, []);
 
-    useEffect(() => {
-        requestData();
-    }, [])
+	const requestData = () => {
+		service.getAllValutes().then((res) => {
+			for (let item in res.Valute) {
+				service
+					.getValute(item)
+					.then((res) => setValute((valute) => [...valute, res]));
+			}
+		});
+	};
 
-    const requestData = () => {
-        service
-            .getAllCharacter()
-            .then(res => {
-                for (let item in res.Valute) {
-                    service
-                        .getCharacter(item)
-                        .then(res => setValute(valute => [...valute, res]))
-                }
-            })
-    }
+	const filteredData = useMemo(() => {
+		return valute.filter((item) =>
+			item.Name.toLowerCase().includes(value.toLowerCase())
+		);
+	}, [value]);
 
+	const renderInterface = filteredData.map((valute, index) => {
+		const { Name, Value, Previous } = valute;
+		const arrowOperand = Value > Previous ? arrowUp : arrowDown;
+		const colorOperand = Value > Previous ? { color: '#009900' } : { color: '#d9092c' }; // prettier-ignore
 
-    const filteredData = valute.filter(item => item.Name.toLowerCase().includes(value.toLowerCase()));
-    const content = filteredData.map((valute, index) => {
+		return (
+			<li className={`list-group-item item`} key={index}>
+				<div className='list-group-item-block'>{arrowOperand}</div>
+				<div className='list-group-item-block'>
+					{`${Name} `}
+					<b style={colorOperand}>
+						{Value.toFixed(2)} <span>&#x20bd;</span>
+					</b>
+				</div>
+			</li>
+		);
+	});
 
-        const { Name, Value, Previous } = valute;
-        const arrowOperand = Value > Previous ? arrowUp : arrowDown;
-        const colorOperand = Value > Previous ? null : 'text-danger';
+	const renderValute = pending ? <Spinner /> : renderInterface;
 
-        return (
-            <li className={`${colorOperand} list-group-item item`} key={index}>
-                {arrowOperand} {Name} <b>{Value.toFixed(2)}  <span>&#x20bd;</span></b>
-            </li>
-        );
-    });
+	return (
+		<div className='contain'>
+			<div className='values'>
+				<form>
+					<input
+						onChange={(e) =>
+							startTransition(() => {
+								setValue(e.target.value);
+							})
+						}
+						value={value}
+						type='text'
+						className='form-control controls-input'
+						placeholder='Введите название валюты'
+					/>
+				</form>
 
-    return (
-        <div className="contain">
-            <div className="values">
-                <form>
-                    <input
-                        onChange={(e) => setValue(e.target.value)}
-                        value={value}
-                        type="text" className="form-control controls-input"
-                        placeholder='Введите название валюты' />
-                </form>
-
-                <div className="lists">
-                    <ul className="list-group custom-list">
-                        {value.length > 0 ? content : null}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    )
-}
+				<div className='lists'>
+					<ul className='list-group custom-list'>
+						{value.length > 0 && renderValute}
+					</ul>
+				</div>
+			</div>
+		</div>
+	);
+};
 
 export default Converter;
